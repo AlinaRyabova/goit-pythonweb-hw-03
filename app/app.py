@@ -1,9 +1,6 @@
-import asyncio
 import logging
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
-from multiprocessing import Process
-import websockets
 from datetime import datetime
 import json
 import os
@@ -15,7 +12,6 @@ DATA_FILE = "storage/data.json"
 
 if not os.path.exists("storage"):
     os.makedirs("storage")
-
 
 class HttpHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -45,13 +41,6 @@ class HttpHandler(BaseHTTPRequestHandler):
         }
 
         self.save_message_to_json(message_data)
-
-        async def send_message():
-            uri = "ws://localhost:6000"
-            async with websockets.connect(uri) as websocket:
-                await websocket.send(json.dumps(message_data))
-
-        asyncio.run(send_message())
 
         self.send_response(200)
         self.send_header("Content-type", "text/html")
@@ -113,38 +102,11 @@ class HttpHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(html_content.encode("utf-8"))
 
-
-class WebSocketServer:
-    async def ws_handler(self, websocket):
-        async for message in websocket:
-            data = json.loads(message)
-            logging.info(f"Received message: {data}")
-
-
-async def run_websocket_server():
-    server = WebSocketServer()
-    async with websockets.serve(server.ws_handler, "0.0.0.0", 6000):
-        logging.info("WebSocket server started on port 6000")
-        await asyncio.Future()
-
-
-def start_websocket_server():
-    asyncio.run(run_websocket_server())
-
-
 def run_http_server():
     server_address = ("", 3000)
     httpd = HTTPServer(server_address, HttpHandler)
     logging.info("HTTP server started on port 3000")
     httpd.serve_forever()
 
-
 if __name__ == "__main__":
-    http_process = Process(target=run_http_server)
-    ws_process = Process(target=start_websocket_server)
-
-    http_process.start()
-    ws_process.start()
-
-    http_process.join()
-    ws_process.join()
+    run_http_server()
